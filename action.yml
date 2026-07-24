@@ -66,6 +66,9 @@ runs:
         UPLOAD: ${{ inputs.upload }}
         SERVE: ${{ inputs.serve }}
         CLI_VERSION: ${{ inputs.cli-version }}
+        # GitHub's ubuntu-latest (24.04+) blocks Chrome's sandbox via
+        # AppArmor; ephemeral runners make --no-sandbox the standard call.
+        MOTIONSCORE_NO_SANDBOX: "1"
       run: |
         set -uo pipefail
         OUT="$RUNNER_TEMP/motionscore"
@@ -77,7 +80,7 @@ runs:
           echo "Starting server: $SERVE"
           bash -c "$SERVE" &
           for i in $(seq 1 60); do
-            curl -sf -o /dev/null "$BASE" && break
+            if curl -sf -o /dev/null "$BASE"; then break; fi
             sleep 2
           done
         fi
@@ -93,8 +96,10 @@ runs:
           if [ "$UPLOAD" = "true" ]; then args+=(--upload); else args+=(--no-upload); fi
           if [ -n "$THRESHOLD" ]; then args+=(--threshold "$THRESHOLD"); fi
           echo "::group::Auditing $BASE$page"
-          npx --yes "motionscore@$CLI_VERSION" "$BASE$page" "${args[@]}"
-          code=$?
+          # GitHub injects bash -e into composite run steps; the || keeps a
+          # failing audit from aborting the loop before results aggregate.
+          code=0
+          npx --yes "motionscore@$CLI_VERSION" "$BASE$page" "${args[@]}" || code=$?
           echo "::endgroup::"
           if [ "$code" -eq 2 ]; then
             status=2

@@ -56,3 +56,5 @@ The PR comment posts before the gate fires. The job fails with exit `1` when a p
 ## Development
 
 This repository is a mirror. The action is developed in the [motion monorepo](https://github.com/motiondivision) alongside the [`motionscore` CLI](https://www.npmjs.com/package/motionscore) that does the actual auditing.
+
+<!-- test: exercise the Guard PR comment -->

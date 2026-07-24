@@ -1,5 +1,5 @@
 name: MotionScore Guard
-description: Audit animation performance on every PR. Grades pages S to F, comments the result, and optionally fails the build below a threshold.
+description: Audit animation performance on every PR. Grades pages S to F, comments the results, and fails builds below your threshold.
 author: Motion
 branding:
   icon: activity

@@ -52,7 +52,3 @@ The browser runs on your GitHub runner, so audits cost you only runner minutes (
 ## Exit behaviour
 
 The PR comment posts before the gate fires. The job fails with exit `1` when a page grades below `threshold`, and exit `2` when an audit could not run. If api.motion.dev is unreachable, the run warns and continues rather than failing your build.
-
-## Development
-
-This repository is a mirror. The action is developed in the [motion monorepo](https://github.com/motiondivision) alongside the [`motionscore` CLI](https://www.npmjs.com/package/motionscore) that does the actual auditing.

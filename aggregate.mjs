@@ -51,11 +51,13 @@ const findings = graded
   .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity])
   .slice(0, 3)
 
+const GUARD_DOCS = "https://score.motion.dev/docs/guard?utm_source=github&utm_medium=guard-comment"
+
 const verdict = threshold
   ? pass
     ? `threshold **${threshold}**: **pass**`
     : `threshold **${threshold}**: **fail**`
-  : "report only · [add the gate →](https://score.motion.dev/docs/guard)"
+  : `report only · [add the gate →](${GUARD_DOCS})`
 
 const host = baseUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
 const badge = host
@@ -80,7 +82,7 @@ if (findings.length > 0) {
 
 lines.push(
   "",
-  "<sub>**[MotionScore Guard](https://score.motion.dev/docs/guard)** · Fail the build, not your users. Free audits at [score.motion.dev](https://score.motion.dev)</sub>",
+  `<sub>Stop shipping animation performance regressions with **[MotionScore Guard](${GUARD_DOCS})**. Run your free audits at [score.motion.dev](https://score.motion.dev?utm_source=github&utm_medium=guard-comment)</sub>`,
   "",
 )
 

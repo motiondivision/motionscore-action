@@ -7,8 +7,9 @@ branding:
 
 inputs:
   url:
-    description: Base URL to audit, e.g. a preview deployment URL
-    required: true
+    description: Base URL to audit. Defaults to the preview URL from the deployment_status event, so it can be omitted on preview-deploy workflows.
+    required: false
+    default: ""
   pages:
     description: Newline-separated paths to audit, relative to url
     required: false
@@ -49,17 +50,45 @@ outputs:
 runs:
   using: composite
   steps:
+    # Lets the bare `uses:` line work on preview-deploy workflows: with no
+    # url input, read the preview URL from the deployment_status event, and
+    # no-op politely on the pending/failure states so users don't need the
+    # `if:` guard.
+    - name: Resolve URL
+      id: resolve
+      shell: bash
+      env:
+        INPUT_URL: ${{ inputs.url }}
+        EVENT_NAME: ${{ github.event_name }}
+        DEPLOY_STATE: ${{ github.event.deployment_status.state }}
+        DEPLOY_URL: ${{ github.event.deployment_status.environment_url }}
+      run: |
+        if [ "$EVENT_NAME" = "deployment_status" ] && [ "$DEPLOY_STATE" != "success" ]; then
+          echo "Deployment state is '$DEPLOY_STATE'; Guard audits once it reaches 'success'. Skipping."
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        URL="${INPUT_URL:-$DEPLOY_URL}"
+        if [ -z "$URL" ]; then
+          echo "::error::No url input, and this event carries no preview deployment URL. Pass url:, or copy the full workflow from https://score.motion.dev/docs/guard"
+          exit 2
+        fi
+        echo "skip=false" >> "$GITHUB_OUTPUT"
+        echo "url=$URL" >> "$GITHUB_OUTPUT"
+
     - name: Cache Chrome
+      if: steps.resolve.outputs.skip != 'true'
       uses: actions/cache@v6
       with:
         path: ~/.cache/puppeteer
         key: ${{ runner.os }}-motionscore-${{ inputs.cli-version }}
 
     - name: Audit pages
+      if: steps.resolve.outputs.skip != 'true'
       id: audit
       shell: bash
       env:
-        BASE_URL: ${{ inputs.url }}
+        BASE_URL: ${{ steps.resolve.outputs.url }}
         PAGES: ${{ inputs.pages }}
         THRESHOLD: ${{ inputs.threshold }}
         MOTIONSCORE_TOKEN: ${{ inputs.token }}
@@ -111,15 +140,16 @@ runs:
         echo "status=$status" >> "$GITHUB_OUTPUT"
 
     - name: Aggregate results
+      if: steps.resolve.outputs.skip != 'true'
       id: aggregate
       shell: bash
       env:
-        BASE_URL: ${{ inputs.url }}
+        BASE_URL: ${{ steps.resolve.outputs.url }}
         THRESHOLD: ${{ inputs.threshold }}
       run: node "$GITHUB_ACTION_PATH/aggregate.mjs" "$RUNNER_TEMP/motionscore"
 
     - name: Comment on PR
-      if: ${{ inputs.comment == 'true' }}
+      if: ${{ inputs.comment == 'true' && steps.resolve.outputs.skip != 'true' }}
       uses: actions/github-script@v9
       with:
         script: |
@@ -163,6 +193,7 @@ runs:
           }
 
     - name: Enforce threshold
+      if: steps.resolve.outputs.skip != 'true'
       shell: bash
       env:
         STATUS: ${{ steps.audit.outputs.status }}

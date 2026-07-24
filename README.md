@@ -11,22 +11,24 @@ Create a workflow file in your repository, for example `.github/workflows/motion
 ```yaml
 name: MotionScore Guard
 on: deployment_status
+permissions:
+  pull-requests: write
 jobs:
   guard:
-    if: github.event.deployment_status.state == 'success'
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
     steps:
       - uses: motiondivision/motionscore-guard@v1
+```
+
+Vercel, Cloudflare Pages and Netlify all emit the `deployment_status` event with the preview URL; the action reads it from the event, waits for the deploy to succeed, and audits your homepage. Open a pull request and Guard appears in the PR's checks with a grades comment that updates on every push. Add a `with:` block to audit specific paths:
+
+```yaml
+      - uses: motiondivision/motionscore-guard@v1
         with:
-          url: ${{ github.event.deployment_status.environment_url }}
           pages: |
             /
             /pricing
 ```
-
-Vercel, Cloudflare Pages and Netlify all emit the `deployment_status` event with the preview URL, so the above works unchanged with any of them. Open a pull request and Guard appears in the PR's checks with a grades comment that updates on every push.
 
 ## Add the gate
 
@@ -43,7 +45,7 @@ Now the check fails whenever a page grades below `threshold`. Full step-by-step 
 
 | Input | Default | Description |
 | --- | --- | --- |
-| `url` | required | Base URL to audit |
+| `url` | auto | Base URL to audit. Defaults to the preview URL on the `deployment_status` event |
 | `pages` | `/` | Newline-separated paths, relative to `url` |
 | `threshold` | none | Fail if any page grades worse than this tier (S/A/B/C/D/F). Requires a paid [MotionScore plan](https://score.motion.dev/pricing) and `token`. Empty = report-only comment |
 | `token` | none | MotionScore API token, from your [Motion dashboard](https://motion.dev/dashboard/tokens), stored as the `MOTIONSCORE_TOKEN` repository secret |

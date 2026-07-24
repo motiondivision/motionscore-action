@@ -2,7 +2,9 @@
 
 # MotionScore Guard
 
-Audit animation performance on every pull request. MotionScore loads your pages in a real browser on the runner, grades them S to F (compositor vs paint vs layout cost, scroll animations, layout thrashing, GPU pressure), comments the results on the PR, and optionally fails the build below a grade threshold.
+Audit animation performance on every pull request. MotionScore loads your pages in a real browser on the runner, grades them S to F (compositor vs paint vs layout cost, scroll animations, layout thrashing, GPU pressure), and comments the results on the PR.
+
+The grades comment is **free for any repository**: no token, no account. Adding a [MotionScore](https://score.motion.dev) token and a `threshold` upgrades it into a gate that fails the build when a page grades below your bar.
 
 Create a workflow file in your repository, for example `.github/workflows/motionscore.yml`:
 
@@ -22,11 +24,20 @@ jobs:
           pages: |
             /
             /pricing
+```
+
+Vercel, Cloudflare Pages and Netlify all emit the `deployment_status` event with the preview URL, so the above works unchanged with any of them. Open a pull request and Guard appears in the PR's checks with a grades comment that updates on every push.
+
+## Add the gate
+
+With a paid [MotionScore plan](https://score.motion.dev/pricing), add your API token as a repository secret named `MOTIONSCORE_TOKEN` (**Settings → Secrets and variables → Actions**, or `gh secret set MOTIONSCORE_TOKEN`) and extend the `with:` block:
+
+```yaml
           threshold: A
           token: ${{ secrets.MOTIONSCORE_TOKEN }}
 ```
 
-Vercel, Cloudflare Pages and Netlify all emit the `deployment_status` event with the preview URL, so the above works unchanged with any of them. Add your token as a repository secret named `MOTIONSCORE_TOKEN` (**Settings → Secrets and variables → Actions**, or `gh secret set MOTIONSCORE_TOKEN`), open a pull request, and Guard appears in the PR's checks with a grades comment that updates on every push. Full step-by-step guide: [score.motion.dev/docs/guard](https://score.motion.dev/docs/guard).
+Now the check fails whenever a page grades below `threshold`. Full step-by-step guide: [score.motion.dev/docs/guard](https://score.motion.dev/docs/guard).
 
 ## Inputs
 

@@ -1,0 +1,171 @@
+name: MotionScore Guard
+description: Audit animation performance on every PR. Grades pages S to F, comments the result, and optionally fails the build below a threshold.
+author: Motion
+branding:
+  icon: activity
+  color: yellow
+
+inputs:
+  url:
+    description: Base URL to audit, e.g. a preview deployment URL
+    required: true
+  pages:
+    description: Newline-separated paths to audit, relative to url
+    required: false
+    default: /
+  threshold:
+    description: Fail the run if any page grades worse than this tier (S/A/B/C/D/F). Requires a paid MotionScore plan and token. Empty = report only.
+    required: false
+    default: ""
+  token:
+    description: MotionScore API token (store as a repository secret)
+    required: false
+    default: ""
+  serve:
+    description: Optional command that builds and serves the site before auditing, e.g. "npm run build && npx serve dist -l 4173"
+    required: false
+    default: ""
+  upload:
+    description: Upload reports to score.motion.dev (consumes monthly audit slots; adds a results link to the comment)
+    required: false
+    default: "false"
+  comment:
+    description: Post or update a sticky PR comment with the results
+    required: false
+    default: "true"
+  cli-version:
+    description: motionscore CLI version to run
+    required: false
+    default: "0.1.0"
+
+outputs:
+  grade:
+    description: Worst overall tier across the audited pages
+    value: ${{ steps.aggregate.outputs.grade }}
+  pass:
+    description: '"true" when every page met the threshold (or no threshold was set)'
+    value: ${{ steps.aggregate.outputs.pass }}
+
+runs:
+  using: composite
+  steps:
+    - name: Cache Chrome
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/puppeteer
+        key: ${{ runner.os }}-motionscore-${{ inputs.cli-version }}
+
+    - name: Audit pages
+      id: audit
+      shell: bash
+      env:
+        BASE_URL: ${{ inputs.url }}
+        PAGES: ${{ inputs.pages }}
+        THRESHOLD: ${{ inputs.threshold }}
+        MOTIONSCORE_TOKEN: ${{ inputs.token }}
+        UPLOAD: ${{ inputs.upload }}
+        SERVE: ${{ inputs.serve }}
+        CLI_VERSION: ${{ inputs.cli-version }}
+      run: |
+        set -uo pipefail
+        OUT="$RUNNER_TEMP/motionscore"
+        mkdir -p "$OUT"
+        BASE="${BASE_URL%/}"
+
+        if [ -n "$SERVE" ]; then
+          echo "Starting server: $SERVE"
+          bash -c "$SERVE" &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null "$BASE" && break
+            sleep 2
+          done
+        fi
+
+        status=0
+        i=0
+        while IFS= read -r page; do
+          page="$(echo "$page" | xargs)"
+          [ -z "$page" ] && continue
+          i=$((i+1))
+          printf '%s\n' "$page" >> "$OUT/pages.txt"
+          args=(--summary "$OUT/summary-$i.json")
+          if [ "$UPLOAD" = "true" ]; then args+=(--upload); else args+=(--no-upload); fi
+          if [ -n "$THRESHOLD" ]; then args+=(--threshold "$THRESHOLD"); fi
+          echo "::group::Auditing $BASE$page"
+          npx --yes "motionscore@$CLI_VERSION" "$BASE$page" "${args[@]}"
+          code=$?
+          echo "::endgroup::"
+          if [ "$code" -eq 2 ]; then
+            status=2
+          elif [ "$code" -eq 1 ] && [ "$status" -ne 2 ]; then
+            status=1
+          fi
+        done <<< "$PAGES"
+
+        echo "status=$status" >> "$GITHUB_OUTPUT"
+
+    - name: Aggregate results
+      id: aggregate
+      shell: bash
+      env:
+        BASE_URL: ${{ inputs.url }}
+        THRESHOLD: ${{ inputs.threshold }}
+      run: node "$GITHUB_ACTION_PATH/aggregate.mjs" "$RUNNER_TEMP/motionscore"
+
+    - name: Comment on PR
+      if: ${{ inputs.comment == 'true' }}
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require("fs")
+          const path = `${process.env.RUNNER_TEMP}/motionscore/comment.md`
+          if (!fs.existsSync(path)) return
+          const body = fs.readFileSync(path, "utf8")
+          const marker = "<!-- motionscore-guard -->"
+
+          let prNumber = context.payload.pull_request?.number
+          if (!prNumber && context.sha) {
+            try {
+              const { data } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                ...context.repo,
+                commit_sha: context.sha,
+              })
+              prNumber = data.find((pr) => pr.state === "open")?.number ?? data[0]?.number
+            } catch (err) {
+              core.warning(`Could not resolve a PR for ${context.sha}: ${err.message}`)
+            }
+          }
+          if (!prNumber) {
+            core.info("No pull request found for this run; skipping comment.")
+            return
+          }
+
+          try {
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo,
+              issue_number: prNumber,
+              per_page: 100,
+            })
+            const existing = comments.find((c) => c.body?.includes(marker))
+            if (existing) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body })
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: prNumber, body })
+            }
+          } catch (err) {
+            core.warning(`Could not post the MotionScore comment (needs pull-requests: write): ${err.message}`)
+          }
+
+    - name: Enforce threshold
+      shell: bash
+      env:
+        STATUS: ${{ steps.audit.outputs.status }}
+      run: |
+        if [ "$STATUS" = "2" ]; then
+          echo "One or more audits failed to run."
+          exit 2
+        fi
+        if [ "$STATUS" = "1" ]; then
+          echo "One or more pages graded below the threshold."
+          exit 1
+        fi

@@ -55,11 +55,17 @@ const verdict = threshold
   ? pass
     ? `threshold **${threshold}**: **pass**`
     : `threshold **${threshold}**: **fail**`
-  : "report only"
+  : "report only · [add the gate →](https://score.motion.dev/docs/guard)"
+
+const host = baseUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
+const badge = host
+  ? `[![MotionScore](https://api.motion.dev/score/badge?url=${encodeURIComponent(host)})](https://score.motion.dev/site/${host})`
+  : ""
 
 const lines = [
   MARKER,
   "### MotionScore Guard",
+  ...(badge ? ["", badge] : []),
   "",
   `${baseUrl} · ${verdict}`,
   "",
@@ -74,7 +80,7 @@ if (findings.length > 0) {
 
 lines.push(
   "",
-  "<sub>[MotionScore](https://score.motion.dev) grades animation performance S to F. Run locally: `npx motionscore <url>`</sub>",
+  "<sub>**[MotionScore Guard](https://score.motion.dev/docs/guard)** · Fail the build, not your users. Free audits at [score.motion.dev](https://score.motion.dev)</sub>",
   "",
 )
 

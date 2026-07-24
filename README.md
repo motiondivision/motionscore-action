@@ -59,7 +59,7 @@ Always audit a production build. A dev server (HMR, unminified code) will not gr
 | `url` | required | Base URL to audit |
 | `pages` | `/` | Newline-separated paths, relative to `url` |
 | `threshold` | none | Fail if any page grades worse than this tier (S/A/B/C/D/F). Requires a paid [MotionScore plan](https://score.motion.dev/pricing) and `token`. Empty = report-only comment |
-| `token` | none | MotionScore API token, from your [Motion dashboard](https://motion.dev/dashboard/tokens). Store as a secret |
+| `token` | none | MotionScore API token, from your [Motion dashboard](https://motion.dev/dashboard/tokens). Add it as a repository secret (Settings → Secrets and variables → Actions, or `gh secret set MOTIONSCORE_TOKEN`) |
 | `serve` | none | Command to build and serve the site before auditing |
 | `upload` | `false` | Upload reports to score.motion.dev (consumes monthly audit slots, adds report links to the comment) |
 | `comment` | `true` | Post or update a sticky PR comment |

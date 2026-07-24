@@ -1,0 +1,48 @@
+name: Test
+# Self-test: runs this repo's action for real against a live site.
+# Report-only (free path) always runs; the threshold gate runs when the
+# MOTIONSCORE_TOKEN repository secret is set. On pull requests this also
+# exercises the sticky grades comment.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  HAS_TOKEN: ${{ secrets.MOTIONSCORE_TOKEN != '' }}
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Report-only audit (free path)
+        id: audit
+        uses: ./
+        with:
+          url: https://motion.dev
+          pages: |
+            /
+
+      - name: Assert outputs
+        env:
+          GRADE: ${{ steps.audit.outputs.grade }}
+          PASS: ${{ steps.audit.outputs.pass }}
+        run: |
+          echo "grade=$GRADE pass=$PASS"
+          [[ "$GRADE" =~ ^[SABCDF]$ ]] || { echo "unexpected grade output"; exit 1; }
+          [ "$PASS" = "true" ] || { echo "expected pass=true on a report-only run"; exit 1; }
+
+      - name: Threshold gate (paid path)
+        if: env.HAS_TOKEN == 'true'
+        uses: ./
+        with:
+          url: https://motion.dev
+          threshold: F
+          token: ${{ secrets.MOTIONSCORE_TOKEN }}
+          comment: "false"

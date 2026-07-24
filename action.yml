@@ -69,6 +69,7 @@ runs:
       run: |
         set -uo pipefail
         OUT="$RUNNER_TEMP/motionscore"
+        rm -rf "$OUT"
         mkdir -p "$OUT"
         BASE="${BASE_URL%/}"
 

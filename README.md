@@ -26,31 +26,7 @@ jobs:
           token: ${{ secrets.MOTIONSCORE_TOKEN }}
 ```
 
-Vercel, Cloudflare Pages and Netlify all emit the `deployment_status` event with the preview URL, so the above works unchanged with any of them.
-
-## No preview deployments?
-
-Build and serve a production build on the runner instead. With no deployment to wait for, trigger on the pull request itself:
-
-```yaml
-name: MotionScore Guard
-on: pull_request
-jobs:
-  guard:
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: motiondivision/motionscore-action@v1
-        with:
-          serve: npm ci && npm run build && npx serve dist -l 4173
-          url: http://localhost:4173
-          threshold: A
-          token: ${{ secrets.MOTIONSCORE_TOKEN }}
-```
-
-Always audit a production build. A dev server (HMR, unminified code) will not grade like the site you ship.
+Vercel, Cloudflare Pages and Netlify all emit the `deployment_status` event with the preview URL, so the above works unchanged with any of them. Add your token as a repository secret named `MOTIONSCORE_TOKEN` (**Settings → Secrets and variables → Actions**, or `gh secret set MOTIONSCORE_TOKEN`), open a pull request, and Guard appears in the PR's checks with a grades comment that updates on every push. Full step-by-step guide: [score.motion.dev/docs/guard](https://score.motion.dev/docs/guard).
 
 ## Inputs
 
@@ -59,8 +35,7 @@ Always audit a production build. A dev server (HMR, unminified code) will not gr
 | `url` | required | Base URL to audit |
 | `pages` | `/` | Newline-separated paths, relative to `url` |
 | `threshold` | none | Fail if any page grades worse than this tier (S/A/B/C/D/F). Requires a paid [MotionScore plan](https://score.motion.dev/pricing) and `token`. Empty = report-only comment |
-| `token` | none | MotionScore API token, from your [Motion dashboard](https://motion.dev/dashboard/tokens). Add it as a repository secret (Settings → Secrets and variables → Actions, or `gh secret set MOTIONSCORE_TOKEN`) |
-| `serve` | none | Command to build and serve the site before auditing |
+| `token` | none | MotionScore API token, from your [Motion dashboard](https://motion.dev/dashboard/tokens), stored as the `MOTIONSCORE_TOKEN` repository secret |
 | `upload` | `false` | Upload reports to score.motion.dev (consumes monthly audit slots, adds report links to the comment) |
 | `comment` | `true` | Post or update a sticky PR comment |
 | `cli-version` | pinned | `motionscore` CLI version to run |

@@ -4,6 +4,8 @@
 
 Audit animation performance on every pull request. MotionScore loads your pages in a real browser on the runner, grades them S to F (compositor vs paint vs layout cost, scroll animations, layout thrashing, GPU pressure), comments the results on the PR, and optionally fails the build below a grade threshold.
 
+Create a workflow file in your repository, for example `.github/workflows/motionscore.yml`:
+
 ```yaml
 name: MotionScore Guard
 on: deployment_status
@@ -28,9 +30,17 @@ Vercel, Cloudflare Pages and Netlify all emit the `deployment_status` event with
 
 ## No preview deployments?
 
-Build and serve a production build on the runner instead:
+Build and serve a production build on the runner instead. With no deployment to wait for, trigger on the pull request itself:
 
 ```yaml
+name: MotionScore Guard
+on: pull_request
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
       - uses: actions/checkout@v4
       - uses: motiondivision/motionscore-action@v1
         with:

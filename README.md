@@ -18,7 +18,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - uses: motiondivision/motionscore-action@v1
+      - uses: motiondivision/motionscore-guard@v1
         with:
           url: ${{ github.event.deployment_status.environment_url }}
           pages: |

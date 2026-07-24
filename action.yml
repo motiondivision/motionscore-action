@@ -50,7 +50,7 @@ runs:
   using: composite
   steps:
     - name: Cache Chrome
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/.cache/puppeteer
         key: ${{ runner.os }}-motionscore-${{ inputs.cli-version }}
@@ -120,7 +120,7 @@ runs:
 
     - name: Comment on PR
       if: ${{ inputs.comment == 'true' }}
-      uses: actions/github-script@v7
+      uses: actions/github-script@v9
       with:
         script: |
           const fs = require("fs")
